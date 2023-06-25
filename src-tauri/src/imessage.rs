@@ -11,12 +11,6 @@ use serde_json;
 use serde_json::json;
 use std::path::Path;
 
-/*
-
-{ rowid: 31502, guid: "65FEFB7C-F112-4E54-B65B-F82C8BA1E67B", text: Some("Just leaving town "), service: Some("iMessage"), handle_id: 1, subject: None, date: 442436468000000000, date_read: 442436480000000000, date_delivered: 442436480000000000, is_from_me: false, is_read: true, item_type: 0, group_title: None, group_action_type: 0, associated_message_guid: None, associated_message_type: Some(0), balloon_bundle_id: None, expressive_send_style_id: None, thread_originator_guid: None, thread_originator_part: None, date_edited: 0, chat_id: Some(1), num_attachments: 0, deleted_from: None, num_replies: 0 }
-
-*/
-
 pub fn get_messages_json(
     path: &str,
     min_date_str: &str,
@@ -34,8 +28,8 @@ pub fn get_messages_json(
 
     //
     let mut query_context = QueryContext::default();
-    query_context.set_start(min_date_str);
-    query_context.set_end(max_date_str);
+    let _ = query_context.set_start(min_date_str);
+    let _ = query_context.set_end(max_date_str);
 
     // Create SQL statement
     let mut statement = Message::stream_rows(&db, &query_context).map_err(|e| {
@@ -61,11 +55,11 @@ pub fn get_messages_json(
 
     for message in messages {
         let mut msg = Message::extract(message)?;
-        msg.gen_text(&db);
+        let _ = msg.gen_text(&db);
 
         // convert the Unix timestamp to a NaiveDateTime object
         let date = msg.date;
-        let unix_epoch = NaiveDateTime::from_timestamp(0, 0);
+        let unix_epoch = NaiveDateTime::from_timestamp_opt(0, 0).unwrap();
         let date_time =
             unix_epoch + Duration::seconds(date / 1_000_000_000) + Duration::seconds(978_307_200);
 
@@ -122,17 +116,4 @@ pub fn get_messages_json(
 
     // return the json string
     Ok(json_string)
-}
-
-fn main() {
-    // get the messages as a json string
-    let messages_json = get_messages_json(
-        "/Users/hunterunger/Library/Messages/chat.db",
-        "2021-01-01 00:00:00",
-        "2021-01-31 23:59:59",
-    )
-    .unwrap();
-
-    // save the json string to a file
-    std::fs::write("messages.json", messages_json);
 }

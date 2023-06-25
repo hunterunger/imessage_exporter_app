@@ -7,8 +7,8 @@
         "distDir": "../out"
     },
     "package": {
-        "productName": "iMessage Exporter App",
-        "version": "0.1.0"
+        "productName": "Message Exporter",
+        "version": "0.2.0"
     },
     "tauri": {
         "allowlist": {
@@ -20,17 +20,22 @@
             "dialog": {
                 "all": true
             },
-            "fs": {
+            "clipboard": {
                 "all": false,
+                "readText": false,
+                "writeText": true
+            },
+            "fs": {
+                "all": true,
                 "copyFile": false,
-                "createDir": false,
+                "createDir": true,
                 "exists": false,
                 "readDir": true,
                 "readFile": true,
                 "removeDir": false,
                 "removeFile": false,
                 "renameFile": false,
-                "scope": [],
+                "scope": ["$APPDATA/*", "$APP/*"],
                 "writeFile": true
             },
             "shell": {
@@ -41,6 +46,9 @@
                 "sidecar": false
             },
             "os": {
+                "all": true
+            },
+            "path": {
                 "all": true
             }
         },
@@ -88,7 +96,7 @@
                 "fullscreen": false,
                 "height": 600,
                 "resizable": true,
-                "title": "iMessage Export",
+                "title": "Message Exporter",
                 "width": 800,
                 "titleBarStyle": "Transparent"
             }

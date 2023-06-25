@@ -32,3 +32,13 @@ export type MessageGroupType = {
     chat_type: "Individual" | "Group";
     address: string | number;
 };
+
+export type SavefileType = {
+    version: string;
+    originalGroup: MessageGroupType;
+    generatedMessages: {
+        role: "sender" | "receiver";
+        content: string;
+    }[];
+    config?: {};
+};
