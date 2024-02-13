@@ -1,6 +1,6 @@
-import { MessageGroupType } from "@/util/dataTypes";
+import { MessageGroupType, MessageType } from "@/util/dataTypes";
 
-const fakeMessageBase = {
+const fakeMessageBase: MessageType = {
     associated_message_guid: null,
     associated_message_type: 0,
     balloon_bundle_id: null,
@@ -26,13 +26,14 @@ const fakeMessageBase = {
     text: "Who’s free Friday for a hike?",
     thread_originator_guid: null,
     thread_originator_part: null,
+    chat_identifier: "Fake Group Chat",
 };
 
 const fakeMessageGroupBase: MessageGroupType = {
-    message_group: 0,
     address: 0,
     messages: [],
     chat_type: "Group",
+    chat_id: 0,
 };
 
 const fakeConversation: {

@@ -12,12 +12,14 @@ import {
     XCircleIcon,
 } from "@heroicons/react/24/outline";
 import { open, save } from "@tauri-apps/api/dialog";
-import { writeFile } from "@tauri-apps/api/fs";
+import { copyFile, exists, writeFile } from "@tauri-apps/api/fs";
 import { invoke } from "@tauri-apps/api/tauri";
 import moment from "moment";
 import { useEffect, useState } from "react";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
+import { removeDir, BaseDirectory } from "@tauri-apps/api/fs";
+import getDataDir from "@/util/getDataDir";
 
 export default function Home() {
     const [filepath, setFilepath] = useState<string>("");
@@ -31,10 +33,12 @@ export default function Home() {
         dateTo: string;
         chatId: string;
     }>({
-        dateFrom: moment().subtract(1, "months").format("YYYY-MM-DD"),
+        dateFrom: moment().subtract(1, "week").format("YYYY-MM-DD"),
         dateTo: moment().format("YYYY-MM-DD"),
         chatId: "",
     });
+
+    const [chatrooms, setChatrooms] = useState<string[]>();
 
     useEffect(() => {
         // check if development environment
@@ -44,6 +48,16 @@ export default function Home() {
             });
         }
     }, []);
+
+    useEffect(() => {
+        try {
+            if (!!navigator && permissionSuccess) {
+                loadHtmlFiles();
+            }
+        } catch (e) {
+            console.error(e);
+        }
+    }, [permissionSuccess]);
 
     const loadFile = () => {
         if (process.env.NEXT_PUBLIC_SCREENSHOT_MODE === "true") {
@@ -71,11 +85,11 @@ export default function Home() {
                     groupedData[message.chat_id].messages.push(message);
                 } else {
                     groupedData[message.chat_id] = {
-                        message_group: message.chat_id,
+                        chat_id: message.chat_id,
                         messages: [message],
                         chat_type:
                             message.chat_id === 0 ? "Group" : "Individual",
-                        address: message.chat_id,
+                        address: message.chat_identifier,
                     };
                 }
             });
@@ -84,10 +98,68 @@ export default function Home() {
         });
     };
 
+    const loadHtmlFiles = async (path?: string) => {
+        if (!permissionSuccess || typeof window == "undefined") return;
+
+        const outputFolderName = "html_export";
+
+        const appDataDirPath = await getDataDir();
+
+        const outputDataExists = await exists(outputFolderName, {
+            dir: BaseDirectory.AppData,
+        });
+
+        if (!path && outputDataExists) {
+            console.log("removing", outputFolderName);
+            await removeDir(outputFolderName, {
+                dir: BaseDirectory.AppData,
+                recursive: true,
+            });
+        }
+
+        const newChatrooms = await invoke<string[]>(outputFolderName, {
+            custompath: "",
+            customoutput: path
+                ? path + "/" + outputFolderName
+                : appDataDirPath + outputFolderName,
+            fromdate: filters.dateFrom,
+            todate: filters.dateTo,
+        });
+
+        setChatrooms(
+            newChatrooms
+                .sort((a, b) => a.toString().localeCompare(b.toString()))
+                .filter((v) => !["attachments", "orphaned.html"].includes(v))
+        );
+    };
+
     return (
         <main className="flex min-h-screen flex-col p-3">
             <DiskAccessDialog setPermissionSuccess={setPermissionSuccess} />
-            <div className=" flex row gap-3">
+            <div className="flex gap-2">
+                <ThemedButton
+                    onClick={async () => {
+                        loadHtmlFiles();
+                    }}
+                >
+                    <PlayIcon className="w-5" />
+                    Reload
+                </ThemedButton>
+                <ThemedButton
+                    onClick={async () => {
+                        open({ directory: true }).then((result) => {
+                            console.log(result);
+                            if (typeof result != "string") return;
+
+                            loadHtmlFiles(result);
+                        });
+                    }}
+                >
+                    <ArrowUpOnSquareIcon className="w-5" />
+                    Export All With Attachments
+                </ThemedButton>
+            </div>
+            <div className=" row gap-3 hidden">
                 <ThemedButton
                     onClick={loadFile}
                     disabled={!permissionSuccess && filepath === ""}
@@ -150,6 +222,63 @@ export default function Home() {
                     })
                 }
             />
+            {chatrooms ? (
+                <div>
+                    <h3 className="leading-6 font-medium mb-2">Chat Groups</h3>
+                    <div className="flex flex-col gap-2 mb-2">
+                        {chatrooms.map((chatroom) => (
+                            <div
+                                className="w-full dark:bg-white dark:bg-opacity-20 bg-white rounded-lg p-2 hover:bg-opacity-20 flex flex-row justify-between items-center"
+                                key={chatroom}
+                            >
+                                <p className=" whitespace-pre">
+                                    {chatroom
+                                        .replace(".html", "")
+                                        .replaceAll(", ", "\n")}
+                                </p>
+                                <ArrowUpOnSquareIcon
+                                    onClick={async () => {
+                                        save({
+                                            defaultPath: chatroom,
+                                            filters: [
+                                                {
+                                                    name: "HTML",
+                                                    extensions: ["html"],
+                                                },
+                                            ],
+                                        }).then(async (filepath) => {
+                                            if (!filepath) return;
+
+                                            const appDataDirPath =
+                                                await getDataDir();
+
+                                            await copyFile(
+                                                appDataDirPath +
+                                                    "html_export/" +
+                                                    chatroom,
+                                                filepath
+                                            );
+
+                                            console.log({
+                                                src:
+                                                    appDataDirPath +
+                                                    "html_export/attachments/",
+                                                dest:
+                                                    filepath?.split("/")[0] +
+                                                    "_attachments/",
+                                            });
+                                        });
+                                    }}
+                                    className="w-5 cursor-pointer"
+                                />
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            ) : (
+                <></>
+            )}
+
             {!messagesGroups ? (
                 <></>
             ) : (
@@ -200,12 +329,12 @@ function GroupItem(props: { group: MessageGroupType }) {
     return (
         <div
             className="bg-white shadow overflow-hidden sm:rounded-lg w-full relative"
-            key={props.group.message_group}
+            key={props.group.chat_id}
         >
             <div className="px-4 py-5 sm:px-6 flex flex-row justify-between sticky top-0">
                 <h3 className="text-lg leading-6 font-medium text-gray-900 text-center">
                     <span className=" text-gray-800 font-bold select-text">
-                        {"Chat " + props.group.message_group}
+                        {props.group.address}
                     </span>
                 </h3>
                 <div className="flex gap-3">
@@ -213,7 +342,7 @@ function GroupItem(props: { group: MessageGroupType }) {
                         onClick={() => {
                             save({
                                 defaultPath:
-                                    "messages-" + group.message_group + ".json",
+                                    "messages-" + group.address + ".json",
                                 filters: [
                                     {
                                         name: "JSON",
@@ -222,7 +351,7 @@ function GroupItem(props: { group: MessageGroupType }) {
                                 ],
                             })
                                 .then((filepath) => {
-                                    console.log(filepath);
+                                    console.log("filepath", filepath);
                                     if (!filepath) return;
                                     writeFile(
                                         filepath,

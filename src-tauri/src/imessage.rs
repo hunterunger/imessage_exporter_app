@@ -1,15 +1,21 @@
 use chrono::{Duration, NaiveDateTime};
+use imessage_database::tables::chat::Chat;
+use imessage_database::tables::table::Cacheable;
 use imessage_database::util::query_context::QueryContext;
 use imessage_database::{
     error::table::TableError,
     tables::{
+        chat_handle::ChatToHandle,
         messages::Message,
         table::{get_connection, Table},
     },
 };
 use serde_json;
 use serde_json::json;
+use std::collections::HashMap;
 use std::path::Path;
+
+use crate::app::error::RuntimeError;
 
 /*
 
@@ -59,6 +65,8 @@ pub fn get_messages_json(
     // create an empty vector to store the messages in a hashmap
     let mut messages_vec = Vec::new();
 
+    let chatrooms: HashMap<i32, Chat> = Chat::cache(&db).unwrap();
+
     for message in messages {
         let mut msg = Message::extract(message)?;
         msg.gen_text(&db);
@@ -72,8 +80,16 @@ pub fn get_messages_json(
         // convert the NaiveDateTime object to a string
         let date_str = date_time.to_string();
 
+        // get the chat_identifier from the chatrooms hashmap
+        let chat_identifier = match chatrooms.get(&msg.chat_id.or(Some(0)).unwrap()) {
+            Some(chat) => chat.chat_identifier.clone(),
+            None => "Unknown".to_string(),
+        };
+
         // create empty hashmap to store the message.
         let message_json = json!({
+            "chat_identifier": chat_identifier,
+
             "rowid": msg.rowid,
             "guid": msg.guid,
             "text": msg.text,

@@ -1,4 +1,5 @@
 export type MessageType = {
+    chat_identifier: string;
     associated_message_guid: null;
     associated_message_type: number;
     balloon_bundle_id: null;
@@ -10,7 +11,7 @@ export type MessageType = {
     deleted_from: null;
     expressive_send_style_id: null;
     group_action_type: number;
-    group_title: null;
+    group_title: string | null;
     guid: string;
     handle_id: number;
     is_from_me: boolean;
@@ -27,7 +28,7 @@ export type MessageType = {
 };
 
 export type MessageGroupType = {
-    message_group: number;
+    chat_id: number;
     messages: MessageType[];
     chat_type: "Individual" | "Group";
     address: string | number;
